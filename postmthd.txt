@@ -1,0 +1,62 @@
+        Ctl-opt dftactgrp(*no) actgrp(*caller);
+     h
+     D MSG             S          20000A   VARYING
+     D HEAD            S          10000A   VARYING
+     D URL             S             50A   VARYING
+        Dcl-c tokenKey const('Bearer +
+        ec7fdc3e595bbcf5c29a32769fd8ce0f20245f53da28719a9037089000cfa9a9');
+        Dcl-s tokenheader Char(20000);
+        Dcl-s body Char(10000);
+        Dcl-s returnedSQLCode char(5);
+        Dcl-s messageLength int(5);
+        Dcl-s messageText varchar(32740);
+       /free
+          Exec sql
+            Set option commit = *none;
+
+
+          URL = 'https://gorest.co.in/public/v1/users';
+          Tokenheader = '<httpHeader>'                              +
+            '<header name="Authorization" value="'                  +
+            %trim(TokenKey) + '">'                             +
+            '</header>'                                             +
+            '<header name="Content-Type" value="application/json">' +
+            '</header>'                                             +
+            '</httpHeader>';
+
+          Body = '{' + '"email":' + '"' + %trim('askhit@gmail.com') + '",' +
+          '"name":'  + '"' + %trim('aikhil')   + '",'     +
+          '"gender":' + '"' + %trim('male')  + '",'    +
+          '"status":'+ '"' + %trim('active')  + '"' + '}';
+
+
+          Exec sql CALL QSYS2.QCMDEXC('CHGJOB CCSID(37)');
+
+          EXEC SQL
+            Select coalesce(varChar(responseMsg,20000),' '),
+            VarChar(responseHttpHeader,10000) INTO :MSG,:HEAD
+            From Table(Systools.HttpPostClobVerbose(
+            Trim(:URL),
+            Trim(:Tokenheader),
+            Trim(:body)));
+
+
+            Diagnostics();
+              if ReturnedSqlCode = *Blanks;
+               exec sql drop table if exists qtemp/WkTestFile;
+               exec sql create table qtemp/WkTestFile(data char(9999));
+               exec sql insert into qtemp/WkTestFile(data)
+                                     values(:Msg);
+               dsply 'Check WkTestFile file in Qtemp for data';
+              endIf;
+              *INLR = *ON;
+             Dcl-proc Diagnostics ;
+              Exec sql GET DIAGNOSTICS CONDITION 1
+             :ReturnedSqlCode = DB2_RETURNED_SQLCODE,
+             :MessageLength = MESSAGE_LENGTH,
+             :MessageText = MESSAGE_TEXT;
+             End-proc ;
+
+
+
+       /end-free

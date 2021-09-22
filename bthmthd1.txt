@@ -1,0 +1,139 @@
+        Ctl-Opt DftActGrp(*No) BndDir('SUMITLIB/WEB');
+     fEMPDTLS1  uf a e           k disk
+      *---------------------------------------------------------------
+      *External Procedure
+      *---------------------------------------------------------------
+      *Procedure for writing into browser
+        Dcl-Pr WriteToWeb ExtProc('QtmhWrStout');
+          Datavar     Char(65535)  Options(*varsize);
+          DatavarLen  Int(10)      Const;
+          ErrCode   Char(8000)   Options(*varsize);
+        End-pr;
+      *Procedure for getting environment variable
+
+        Dcl-Pr GetEnv Pointer ExtProc('getenv');
+          *N  Pointer  Value Options(*string);
+        End-Pr;
+
+      *Procedure for reading Standard input
+
+        Dcl-Pr  ReadStdInput  ExtProc('QtmhRdStin');
+           szRtnBuffer   Char(65535)  Options(*varsize);
+           nBufLen       Int(10)      Const;
+           nRtnLen       Int(10);
+           QUSEC                      Like(QUSEC);
+        End-Pr;
+
+      *Procedure for translating ASCII to EBCDIC
+
+        Dcl-Pr translate   Extpgm('QDCXLATE');
+           *N  packed(5:0)  Const;
+           *N  Char(32766)  Options(*varsize);
+           *N  Char(10)     Const;
+        End-Pr;
+        Dcl-S  Data  Char(5000);
+        Dcl-C  CRLF  x'0d25';
+
+      * Declare  the varibale for response beck
+        Dcl-S  Url          Char(100);
+        Dcl-S  ContentType  Char(100);
+        Dcl-S  ReqMethod    Char(20);
+        Dcl-S RtnBuffer   Char(4096) Inz;
+        dcl-S RtnLen      Int(10);
+        Dcl-S  EBCData    Char(32766) Inz;
+        dcl-s flg1   char(1) inz('N');
+
+      * Local variable for get method
+        DCL-S len  int(5);
+        DCL-S lpos int(5);
+        DCL-S sub  char(10);
+        dcl-s lclid int(5);
+      * Local Variable for post Method
+        DCL-S lenp int(5);
+        DCL-S lposp int(5);
+        DCL-S subp  char(10);
+        DCL-S subpd char(10);
+        dcl-s lclidp int(5);
+      * Local variable for data moving browser
+        dcl-s dsid int(5);
+        dcl-s dsname char(10);
+        dcl-s dsdpt char(10);
+      * Data srcture for error storing
+        Dcl-Ds  ErrDS   Qualified;
+        BytesProv   Int(10)  Inz(0);
+        BytesAvail  Int(10)  Inz(0);
+        End-Ds;
+
+        /Copy Qsysinc/QRpglesrc,Qusec
+
+        Dcl-Ds ApiError LikeDs(QUSEC) Inz;
+
+        Data = 'Content-type: text/html' + CRLF + CRLF;
+              WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+
+        Data = '<h1>Hello World!!! I am Sumit</h1>';
+              WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+        Url = %Str(GetEnv('REQUEST_URI'));
+                ReqMethod = %Str(GetEnv('REQUEST_METHOD'));
+
+           Len=%len(%trim(url));
+           Lpos=%scanr('/':url);
+           Sub=%subst(url:lpos+1:len-lpos);
+           Lclid=%dec(sub:5:0);
+
+
+          Chain lclid EMPDTLS1;
+          If %found;
+            Dsid=lclid;
+            Dsname=empnm;
+            Dsdpt=empdpt;
+          Endif;
+        If ReqMethod = 'POST';
+                  ContentType = %Str(GetEnv('CONTENT_TYPE'));
+                  ReadStdInput(RtnBuffer: %size(RtnBuffer): RtnLen: apiError);
+                  If ContentType = 'application/json';
+                    EBCData = %Trim(RtnBuffer);
+                    Translate(%Len(%Trim(EBCData)): EBCData: 'QTCPEBC');
+                      Rtnbuffer=%trim(ebcdata);
+                  EndIf;
+
+              Lenp=%len(%trim(RtnBuffer));
+              Lposp=%scan(',':RtnBuffer);
+              Subp=%subst(RtnBuffer:lposp+1:lenp);
+              Subpd=%subst(RtnBuffer:1:lposp-1);
+                   Empid=lclid;
+                   Empnm=subpd;
+                   Empdpt=subp;
+                 Write emp_rec;
+
+                 Data = 'URL:' + %Trim(Url) + '<br>' +
+                  'Req Method:' + %Trim(ReqMethod) + '<br>' +
+                  'ContentType:' + %Trim(ContentType) +CRLF;
+               // 'empid1:' + %Trim(%char(dsid) + CRLF +
+                WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+                        Data = 'Data:' + %Trim(RtnBuffer) + CRLF;
+                        WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+                Data = 'Converted Data:' + %Trim(EBCData);
+                        WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+
+        EndIf;
+
+
+        If ReqMethod = 'GET';
+
+        Data = 'URL:' + %Trim(Url) + '<br>' +
+                  'Req Method:' + %Trim(ReqMethod) + '<br>' +
+                  'ContentType:' + %Trim(ContentType) + CRLF+
+               // 'empid1:' + %Trim(%char(dsid) + CRLF +
+                    'EmpName1:' +dsname + CRLF+
+                  'Department1:'+dsdpt +CRLF;
+        WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+                Data = 'Data:' + %Trim(RtnBuffer) + CRLF;
+                WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+        Data = 'Converted Data:' + %Trim(EBCData);
+                WriteToWeb(Data: %Len(%Trim(Data)):ErrDs);
+        EndIf;
+
+                *Inlr = *On;
+                Return;
+
