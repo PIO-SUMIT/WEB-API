@@ -1,8 +1,5 @@
         Ctl-Opt DftActGrp(*No) BndDir('SUMITLIB/WEB');
      fEMPDTLS1  uf a e           k disk
-      *---------------------------------------------------------------
-      *External Procedure
-      *---------------------------------------------------------------
       *Procedure for writing into browser
         Dcl-Pr WriteToWeb ExtProc('QtmhWrStout');
           Datavar     Char(65535)  Options(*varsize);
