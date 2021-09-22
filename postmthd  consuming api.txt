@@ -10,7 +10,7 @@
         Dcl-s returnedSQLCode char(5);
         Dcl-s messageLength int(5);
         Dcl-s messageText varchar(32740);
-       /free
+      
           Exec sql
             Set option commit = *none;
 
@@ -59,4 +59,4 @@
 
 
 
-       /end-free
+      
