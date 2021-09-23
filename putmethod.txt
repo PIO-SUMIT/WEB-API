@@ -1,0 +1,57 @@
+        Ctl-opt dftactgrp(*no) actgrp(*caller);
+     h
+     d MSG             S          20000A   VARYING
+     d HEAD            S          10000A   VARYING
+     D URL             S             50A   VARYING
+        dcl-c tokenKey const('Bearer +
+        ec7fdc3e595bbcf5c29a32769fd8ce0f20245f53da28719a9037089000cfa9a9');
+        dcl-s tokenheader Char(20000);
+        dcl-s body Char(10000);
+        dcl-s returnedSQLCode char(5);
+        dcl-s messageLength int(5);
+        dcl-s messageText varchar(32740);
+       /free
+          exec sql
+            set option commit = *none;
+
+          URL = 'https://gorest.co.in/public/v1/users/69';
+          Tokenheader = '<httpHeader>'                              +
+            '<header name="Authorization" value="'                  +
+            %trim(TokenKey) + '">'                             +
+            '</header>'                                             +
+            '<header name="Content-Type" value="application/json">' +
+            '</header>'                                             +
+            '</httpHeader>';
+
+          Body = '{' + '"email":' + '"' + %trim('sumit@gmail.com') + '",' +
+          '"name":'  + '"' + %trim('sumit')   + '",'     +
+          '"gender":' + '"' + %trim('male')  + '",'    +
+          '"status":'+ '"' + %trim('active')  + '"' + '}';
+
+
+          Exec sql CALL QSYS2.QCMDEXC('CHGJOB CCSID(37)');
+
+          EXEC SQL
+            select coalesce(varChar(responseMsg,20000),' '),
+            varChar(responseHttpHeader,10000) INTO :MSG,:HEAD
+            from Table(Systools.HttpPutClobVerbose(
+            Trim(:URL),
+            Trim(:Tokenheader),
+            trim(:body)));
+
+
+            Diagnostics();
+              if ReturnedSqlCode = *Blanks;
+               dsply 'Update completwed check on the browser';
+              endIf;
+              *INLR = *ON;
+             Dcl-proc Diagnostics ;
+              Exec sql GET DIAGNOSTICS CONDITION 1
+             :ReturnedSqlCode = DB2_RETURNED_SQLCODE,
+             :MessageLength = MESSAGE_LENGTH,
+             :MessageText = MESSAGE_TEXT;
+             End-proc ;
+
+
+
+       /end-free
